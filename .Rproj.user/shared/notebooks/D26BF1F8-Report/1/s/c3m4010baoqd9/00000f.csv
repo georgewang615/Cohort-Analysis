@@ -1,0 +1,6 @@
+"0","#| label: tbl-gender-vs-covid"
+"0","#| tbl-cap: ""Table Containing Data from Gender and COVID Diagnosis"""
+"0",""
+"0","#creating frequency table and displaying it"
+"0","df3 = xtabs(~gender_clean + covid_positive, data = data)"
+"0","knitr::kable(df3)"

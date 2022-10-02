@@ -1,0 +1,6 @@
+"0","#filtering the female and male samples"
+"0","df2_female = df2 %>% filter(gender_clean == ""female"")"
+"0","df2_male = df2 %>% filter(gender_clean == ""male"")"
+"0",""
+"0","#two-sample t-test"
+"0","test2 = t.test(df2_female$height_clean, df2_male$height_clean, alternative = ""less"", var.equal = TRUE)"

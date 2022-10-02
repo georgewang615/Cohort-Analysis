@@ -1,0 +1,6 @@
+"0",""
+"0","#setting the seed to achieve reproductibility"
+"0","set.seed(123)"
+"0",""
+"0","#Monte Carlo simulated test for independence"
+"0","test3 = chisq.test(df3, simulate.p.value = TRUE, B = 10000)"

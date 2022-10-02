@@ -1,0 +1,9 @@
+format: 
+  html: 
+    ### IMPORTANT ###
+    self-contained: true # Creates a single HTML file as output
+    code-fold: show # Code folding; allows you to show/hide code chunks
+    ### USEFUL ###
+    code-tools: true # Includes a menu to show/hide all chunks
+table-of-contents: true # (Useful) Creates a table of contents!
+number-sections: true # (Optional) Puts numbers next to heading/subheadings

@@ -1,0 +1,8 @@
+"0",""
+"0","#graphing bar chart illustrating the distribution of COVID diagnosis between female and male students"
+"0","data %>% select(gender_clean, covid_positive) %>%"
+"0","  ggplot(aes(gender_clean))  + "
+"0","  scale_fill_manual(values = c(""darkgreen"",""darkred"")) +"
+"0","  scale_color_manual(values = c(""lightpink"", ""lightblue"")) +"
+"0","  geom_bar(aes(fill = covid_positive, colour = gender_clean), position = ""dodge"", size = 3) +"
+"0","  labs(x = ""Gender"", y = ""Count"", fill = ""COVID Diagnosis"", colour = ""Gender"")"

@@ -1,0 +1,2 @@
+"0","#traditional chi-squared test without Yate's correction"
+"0","test1 = chisq.test(df1, correct = FALSE)"

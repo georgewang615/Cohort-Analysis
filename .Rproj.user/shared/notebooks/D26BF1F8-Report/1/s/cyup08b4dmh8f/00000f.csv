@@ -1,0 +1,5 @@
+"0","#| label: tbl-enrollment-vs-news"
+"0","#| tbl-cap: ""Table Illustrating Relationship Between Enrollment and  News Frequency"""
+"0","df1 = xtabs(~normal_advanced + read_news, data = data) %>% "
+"0","  as.data.frame.matrix()"
+"0","knitr::kable(df1)"

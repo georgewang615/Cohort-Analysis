@@ -1,0 +1,321 @@
+---
+title: "DATA2x02 Survey Report"
+author: "510529123"
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
+bibliography: references.bib
+format: 
+  html: 
+    self-contained: true # Creates a single HTML file as output
+    code-fold: true # Code folding; allows you to show/hide code chunks
+    code-tools: true # Includes a menu to show/hide all chunks
+table-of-contents: true # (Useful) Creates a table of contents!
+number-sections: true # (Optional) Puts numbers next to heading/subheadings
+---
+
+```{r setup, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+```
+
+
+
+## Introduction
+A survey consisting of a variety of questions was sent out to the DATA2x02 cohort, and data from students were collected. The original survey can be found [here](https://pages.github.sydney.edu.au/DATA2002/2022/extra/DATA2x02_survey_2022.pdf), and the raw data can be downloaded [here](https://docs.google.com/spreadsheets/d/e/2PACX-1vTML6kYv2rDjKbPTBuSoX6bdkAWb5Hcm7IWxFmpqftgpt-AFiRhSdDn68XKjGAC_SqQHspAw78tMMuQ/pub?gid=1782171849&single=true&output=tsv).
+
+### Resources Used
+Calculations, data analysis, and formatting for this report was performed in R [@RLanguage] within the Quarto environment [@QuartoR] for reproducibility. Graphs in this report were created with ggplot2 [@ggPlot], and gridExtra [@gridExtra] was used to display the graphs in grids. For data importing and cleaning, this report follows the guide provided by the DATA2x02 teaching team [@tarr2022].
+
+### General Discussion of Data
+
+#### Is this a random sample of DATA2x02 students?
+There are a total of 850 students in DATA2x02 and the survey received 207 responses. The data collected is not a random sample of DATA2x02 students because the survey was optional, meaning that not every student in the DATA2x02 cohort had an equal chance of being selected in the sample. 
+  
+#### What are the potential biases? Which variables are most likely to be subjected to this bias?
+The sample is affected by a range of potential biases:
+
+* __Selection Bias__
+
+DATA2x02 students who actively participate online or attend labs were more willing and likely to be sampled than those who didn't because the survey was optional, and it was advertised on Canvas, Ed Stem, and labs. The variable *"How much time do you usually spend on DATA2x02 each week?"* is most likely to be subjected to this bias (increased), as the participants of the survey may devote more time to DATA2x02 relative to the entire cohort.
+
+* __Non-Response Bias__
+
+DATA2x02 students who were behind in course work were less inclined to respond to the optional survey due to time constraints, which makes them under-represented. The variable *"In an average semester, how many weeks (on average, between all subjects) are you behind on lectures, labs and tutorials?"* is most likely to be subjected to this bias (decreased), as DATA2x02 students who were less behind had a higher chance of participating in the survey.
+
+* __Measurement Bias__
+
+Individuals who participated in the survey might have answered certain questions differently to satisfy the teaching team. The variable *"How many hours a week do you spend studying?"* is most likely to be subjected to this bias (increased) as some participants would inflate their response to meet the expectations.
+
+
+#### Which questions needed improvement to generate useful data (e.g. in terms of the way the question was phrased or response validation)?
+Examples of questions that can be improved:
+
+* *"What is your favourite social media platform?"*
+
+The response for this question is in short-answer format. Besides spelling erorrs, it created inconsistencies such as capitalisation, abbreviation, and space between words between participants. For example, the popular answer __"TikTok"__ appeared in multiple formats: "tiktok", tik tok", "tiktoc", etc. As a result, an extra step is needed to clean the data before analysis. To improve the quality of answers, we should consider reformatting this question using multiple choice that include the popular platforms, as well as the option for participants to add their own answer.
+
+* *"What is your shoe size?"*
+
+Since the question didn't specify the unit for shoe size, the responses were alternating between the US, UK, cm, and EU metrics. Besides complicating the data cleaning process with an additional step, unsolvable ambiguities are also created, as 11 can be interpreted under both US and UK shoe size units. To improve this question, we should consider specifying the shoe size unit (such as US) while also providing a conversion table for participants under the question, so we can standardise the shoe size unit. 
+
+### Data Wrangling
+Before performing analysis, the data from the survey had to be imported and cleaned. It is noted that due to the vast inconsistencies of the survey data, only variables used in this report were cleaned. Moreover, due to the lack of entries (less than 5), certain answers were dismissed - for example, only males and females are examined in question 2.
+
+
+```{r, message = FALSE}
+# loading the data from the tsv file as a tibble
+raw_data = readr::read_tsv("DATA2x02-survey.tsv") 
+
+#replacing the long column names with the suggested shorter names
+new_names = c("timestamp","covid_positive","living_arrangements","height","uni_travel_method","uni_travel_listen","spain_budget","feel_overseas","feel_anxious","study_hrs","read_news","study_load","work","lab_zoom","social_media","gender","sleep_time","wake_time","random_number","steak_preference","dominant_hand","normal_advanced","exercise_hrs","employment_hrs","city","weekly_saving","hourly_plan","weeks_behind","assignment_on_time","used_r_before","team_role","data2x02_hrs","social_media_hrs","uni_year","sport","wam","shoe_size","decade_selection")
+colnames(raw_data) = new_names
+
+#dropping rows with no response for our attributes (read_news, normal_advanced, height, gender, covid_positive)
+data = raw_data %>% drop_na(read_news, normal_advanced, height, gender, covid_positive)
+
+#cleaning the height data to centimeters: multiply small values (data in meters) by 100, remove data in feet/inches, remove unrealistic heights (taller than 250cm)
+data = data %>% dplyr::mutate(
+  height_clean = readr::parse_number(height),
+  height_clean = case_when(
+    height_clean <= 2.5 ~ height_clean * 100,
+    height_clean <= 9 ~ NA_real_,
+    height_clean >= 250 ~ NA_real_,
+    TRUE ~ height_clean
+  )
+) %>% drop_na(height_clean)
+
+#cleaning the gender data: replace common prefixes to "male" or "female", remove invalid values, select values that appear at least 10 times
+data = data %>% dplyr::mutate(
+  gender_clean = tolower(gender),
+  gender_clean = case_when(
+    stringr::str_starts(gender_clean, "fe") ~ "female",
+    stringr::str_starts(gender_clean, "ma") ~ "male",
+    stringr::str_starts(gender_clean, "wo") ~ "female",
+    TRUE ~ gender_clean,
+  )
+) %>% 
+  drop_na(gender_clean) %>%
+  group_by(gender_clean) %>%
+  filter(n() >= 10)
+```
+
+
+
+## Results
+
+### Is there an association between students' enrollment between DATA2002 and DATA2902 and their tendency to read news?
+
+@fig-enrollment-vs-news contains a set of stacking bar charts that visualise the relationship between the attributes normal_advanced and read_news, and @tbl-enrollment-vs-news shows the actual data. To examine the relationship, we will use a chi-squared test for independence for the two attributes.
+
+
+```{r fig-enrollment-vs-news, fig.asp = 0.5, out.width = "100%", warning = FALSE, message = FALSE, fig.cap = "Stacked Bar Charts Illustrating Enrollment and News Frequency Using Both Count and Proportion"}
+#selecting the data we need for this question
+data1 = table(select(data, normal_advanced, read_news)) %>% data.frame()
+
+#graphing two stacked bar charts (count and proportion) for enrollment and news frequency
+p_base = ggplot(data1, aes(x = normal_advanced, y = Freq, fill = read_news)) + 
+  theme_bw(base_size = 12) + 
+  scale_fill_brewer(palette = "Set1") + 
+  labs(fill = "", x = "Enrollment") +
+  theme(legend.position = "top", plot.title = element_text(hjust = 0.5))
+
+p1 = p_base +
+  geom_bar(stat = "identity") +
+  labs(y = "Count") +
+  ggtitle("News Frequency - Count")
+
+p2 = p_base + 
+  geom_bar(stat = "identity", position = "fill") +
+  labs(y = "Proportion") +
+  ggtitle("News Frequency - Proportion")
+
+#displaying both charts side by side in the same grid
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+#| label: tbl-enrollment-vs-news
+#| tbl-cap: "Table Containing Data from Enrollment and News Frequency"
+df1 = xtabs(~normal_advanced + read_news, data = data) %>% 
+  as.data.frame.matrix()
+knitr::kable(df1)
+```
+
+
+```{r, message = FALSE}
+#traditional chi-squared test without Yate's correction
+test1 = chisq.test(df1, correct = FALSE)
+```
+
+1. __Hypothesis__: 
+$H_0: p_{ij} = p_{i∙}p_{∙j}, i = 1, 2; j = 1, 2, 3$ vs $H_1:$ Not all equalities hold
+
+2. __Assumptions__: Observations are independent and $e_{ij} = \frac{y_{i∙}y_{∙j}}{n} \geq 5$. The observation of a student's enrollment provides no information on their news frequency, and vice versa. In addition, @tbl-enrollment-vs-news shows that $e_{ij} = \frac{y_{i∙}y_{∙j}}{n} \geq 5$ holds true for $i = 1, 2; j = 1, 2, 3$.
+
+3. __Test statistic__: $T = \sum\limits_{i=1}^{2} \sum\limits_{j=1}^{3} \frac{(y_{ij} - e_{ij}) ^ 2}{e_{ij}}$. Under $H_0, T \sim \chi_2^2$ approximately
+
+4. __Observed test statistic__: $t_0 = \sum\limits_{i=1}^{2} \sum\limits_{j=1}^{3} \frac{(y_{ij} - y_{i∙}y_{∙j}/n) ^ 2}{y_{i∙}y_{∙j}/n} = 7.38$
+
+5. __p-value__: $P(T \geq t_0) = P(\chi_2^2 \geq 8.19) = 0.025$
+
+6. __Decision__: Since the p-value is less than 0.05, we reject the null hypothesis ($H_0$). There is a statistically significant association between students' enrollment and their tendency to read news.
+
+
+### Are female students shorter than male students?
+
+@fig-gender-vs-height contains a set of box plots and QQ plots that illustrates the similar distribution and spread of female and male heights, and @tbl-gender-vs-height shows the actual data. To test if height is the same for female and male students, we will perform a two-sample t-test using the two means.
+
+```{r fig-gender-vs-height, fig.asp = 0.5, out.width = "100%", warning = FALSE, message = FALSE, fig.cap = "Box Plots Illustrating Approximately Equal Distribution of Height Between Genders with Corresponding QQ Plots"}
+#selecting the data that we need for this question
+df2 = data %>% select(gender_clean, height_clean)
+
+#graphing a set of box plots illustrating height for female and male students
+p1 = ggplot(df2, aes(x = gender_clean, y = height_clean, colour = gender_clean)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter() +
+  labs(y = "Height (cm)", x = "Gender", colour = "Gender") +
+  ggtitle("Box Plots") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+#graphing a set of QQ plots to show normality of height against the theoretical line
+p2 = ggplot(df2, aes(sample = height_clean)) +
+  geom_qq() +
+  geom_qq_line() +
+  facet_grid(~gender_clean) +
+  labs(y = "Sample", x = "Theoretical") +
+  ggtitle("QQ Plots") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+#displaying both graphs in one grid
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+
+```{r}
+#| label: tbl-gender-vs-height
+#| tbl-cap: "Table Containing Data from Gender and Height"
+
+#gathering summary about the data and displaying the table
+summary = df2 %>%
+  group_by(gender_clean) %>%
+  summarise(Mean = mean(height_clean), 
+            SD = sd(height_clean),
+            Variance = var(height_clean),
+            n = n())
+colnames(summary)[1] = "Gender (female/male)"
+knitr::kable(summary, digits = 1)
+```
+
+
+```{r, message = FALSE}
+#filtering the female and male samples
+df2_female = df2 %>% filter(gender_clean == "female")
+df2_male = df2 %>% filter(gender_clean == "male")
+
+#two-sample t-test
+test2 = t.test(df2_female$height_clean, df2_male$height_clean, alternative = "less", var.equal = TRUE)
+```
+
+1. __Hypothesis__: 
+Let $\mu_f$ and $\mu_m$ be the population means for female and male students, respectively. As such,
+$H_0: \mu_f \geq \mu_m$ vs $H_1: \mu_f < \mu_m$
+
+2. __Assumptions__: The two populations are *iid* (independent and identically distributed) and normally distributed - $\mathcal{N} (\mu_f, \sigma^2), \mathcal{N} (\mu_m, \sigma^2)$. The observation of a student's gender (female or male) provides no information on their height, and vice versa. @fig-gender-vs-height and @tbl-gender-vs-height show that the sample have roughly equal variances and besides outliers from the tail, the points are reasonably close to the normal distribution line of the QQ plot. The Central Limit Theorem can also apply because of the sample sizes.
+
+3. __Test statistic__: $T = \frac{\bar{X} - \bar{Y}}{S_p \sqrt{\frac{1}{n_f} + \frac{1}{n_m}}}$, where $n_f = 81, n_m = 88$, where $S_p = \sqrt{\frac{(n_f - 1)S^2_f + (n_m - 1)S^2_m}{n_f + n_m - 2}}$
+. Under $H_0, T \sim t_{n_f + n_m - 2}$
+
+4. __Observed test statistic__: $t_0 = \frac{164.4 - 176.9}{0.992\sqrt{\frac{1}{81} + \frac{1}{88}}} = -12.31$
+
+5. __p-value__: $P(t_{165} \leq t_0) = P(t_{165} \leq -12.50) = 2.2∙10^{-16}$
+
+6. __Decision__: Since the p-value is less than 0.05, we reject the null hypothesis ($H_0$). Therefore, it does appear that female students and shorter than male students.
+
+
+### Are prior COVID diagnosis equally split between female and male students?
+
+@fig-bar-gender-vs-covid illustrates the distribution of COVID diagnosis between female and male students, and @tbl-gender-vs-covid shows the actual data. To test if COVID diagnosis is equally split between female and male students, we will use a Monte Carlo simulation to test for their independence.
+
+```{r fig-bar-gender-vs-covid, fig.asp = 0.5, out.width = "100%", warning = FALSE, message = FALSE, fig.cap = "Bar Chart Showing Distribution of COVID Diagnosis Between Female and Male Students"}
+
+#graphing bar chart illustrating the distribution of COVID diagnosis between female and male students
+data %>% select(gender_clean, covid_positive) %>%
+  ggplot(aes(gender_clean))  + 
+  scale_fill_manual(values = c("darkgreen","darkred")) +
+  scale_color_manual(values = c("lightpink", "lightblue")) +
+  geom_bar(aes(fill = covid_positive, colour = gender_clean), position = "dodge", size = 3) +
+  labs(x = "Gender", y = "Count", fill = "COVID Diagnosis", colour = "Gender")
+```
+```{r}
+#| label: tbl-gender-vs-covid
+#| tbl-cap: "Table Containing Data from Gender and COVID Diagnosis"
+
+#creating frequency table and displaying it
+df3 = xtabs(~gender_clean + covid_positive, data = data)
+knitr::kable(df3)
+```
+
+
+```{r, message = FALSE}
+
+#setting the seed to achieve reproductibility
+set.seed(123)
+
+#Monte Carlo simulated test for independence
+test3 = chisq.test(df3, simulate.p.value = TRUE, B = 10000)
+```
+
+1. __Hypothesis__: 
+$H_0: p_{ij} = p_{i∙}p_{∙j}, i = 1, 2; j = 1, 2$ vs $H_1:$ Not all equalities hold
+
+2. __Assumptions__: No assumptions are made about the distribution of the population under the Monte Carlo simulation
+
+3. __Test statistic__: $T = \sum\limits_{i=1}^{2} \sum\limits_{j=1}^{2} \frac{(y_{ij} - e_{ij}) ^ 2}{e_{ij}}$
+
+4. __Observed test statistic__: $t_0 = \sum\limits_{i=1}^{2} \sum\limits_{j=1}^{2} \frac{(y_{ij} - y_{i∙}y_{∙j}/n) ^ 2}{y_{i∙}y_{∙j}/n} = 0.085$
+
+5. __p-value__: From Monte Carlo simulation: $P(T \geq t_0) = P(\chi^2 \geq 0.085) = 0.76$
+
+6. __Decision__: Since the p-value is greater than 0.05, we do not reject the null hypothesis ($H_0$). Therefore, there is insufficient evidence to suggest that prior COVID diagnosis is unequally distributed between female and male students. @fig-hist-gender-vs-covid shows an illustration of this result, where the sample test statistic is represented by the purple line.
+
+```{r fig-hist-gender-vs-covid, fig.asp = 0.5, out.width = "100%", warning = FALSE, message = FALSE, fig.cap = "Histogram of Monte Carlo Simulated Test Statistics"}
+
+#extracting the sample test statistic
+t_0 = chisq.test(df3)$statistic
+
+#summing the rows and columns
+row_totals = rowSums(df3)
+col_totals = colSums(df3)
+
+#creating a contingency table
+B = 10000
+x_list = r2dtable(n = B, 
+                  r = row_totals,
+                  c = col_totals)
+
+rnd.chisq = numeric(B)
+
+#performing a chi-squared test of independence on every simulation
+for (i in 1:B){
+  rnd.chisq[i] = chisq.test(x_list[[i]])$statistic
+}
+
+#visualising the simulation with a histogram
+hist(rnd.chisq, xlab = "Test Statistic", main = "Monte Carlo Simulated Test Statistics", xlim = c(0, 7))
+abline(v = t_0, col = "purple", lwd = 5)
+```
+
+
+## Conclusion
+The data collected from the DATA2x02 survey gave interesting insights on students in the DATA2x02 cohort.
+
+In this report, we obtained the following results:
+
+* There is a significantly significant association between students' enrollment (DATA2002 or DATA2902) and their tendency to read news.
+
+* Female students were found to be shorter than male students in DATA2x02.
+
+* Prior COVID diagnosis is equally split between female and male students.
+
+## References
